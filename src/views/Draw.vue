@@ -1,5 +1,5 @@
 <template>
-  <div id="page-design-index" ref="pageDesignIndex">
+  <div ref="pageDesignIndex">
     <div class="page-design-index-wrap">
       <design-board class="page-design-wrap fixed-canvas" pageDesignCanvasId="page-design-canvas"></design-board>
     </div>
@@ -17,9 +17,9 @@ import { fontWithDraw, font2style } from '@/utils/widgets/loadFontRule'
 import designBoard from '@/components/modules/layout/designBoard/index.vue'
 import zoomControl from '@/components/modules/layout/zoomControl/index.vue'
 import { useRoute } from 'vue-router'
-import { wGroupSetting } from '@/components/modules/widgets/wGroup/groupSetting'
+// import { wGroupSetting } from '@/components/modules/widgets/wGroup/groupSetting'
 import { storeToRefs } from 'pinia'
-import { useGroupStore, useCanvasStore, useWidgetStore } from '@/store'
+import { useCanvasStore, useWidgetStore } from '@/store'
 
 type TState = {
   style: StyleValue
@@ -32,14 +32,10 @@ const state = reactive<TState>({
   },
 })
 const pageStore = useCanvasStore()
-const groupStore = useGroupStore()
 const widgetStore = useWidgetStore()
 const { dPage } = storeToRefs(pageStore)
 
 onMounted(() => {
-  groupStore.initGroupJson(JSON.stringify(wGroupSetting))
-  // store.dispatch('initGroupJson', JSON.stringify(wGroupSetting))
-  // initGroupJson(JSON.stringify(wGroup.setting))
   nextTick(() => {
     load()
   })
@@ -48,37 +44,37 @@ onMounted(() => {
 async function load() {
   let backgroundImage = ''
   let loadFlag = false
-  const { id, tempid, tempType: type = 0  } = route.query 
+  const { id, tempid, tempType: type = 0, index = 0  }: any = route.query 
   if (id || tempid) {
     const postData = {
-      id: Number(id || tempid),
+      id: id || tempid,
       type: Number(type)
     }
     const { data, width, height } = await api.home[id ? 'getWorks' : 'getTempDetail'](postData)
-    const content = JSON.parse(data)
-    const widgets = Number(type) == 1 ? content : content.widgets
+    let content = JSON.parse(data)
+    const isGroupTemplate = Number(type) == 1
 
-    if (Number(type) == 1) {
+    if (Array.isArray(content) && !isGroupTemplate) {
+      const { global, layers } = content[index]
+      content = {page: global, widgets: layers}
+    }
+    const widgets = isGroupTemplate ? content : content.widgets
+    
+    if (isGroupTemplate) {
       dPage.value.width = width
       dPage.value.height = height
       dPage.value.backgroundColor = '#ffffff00'
       widgetStore.addGroup(content)
-      // store.dispatch('addGroup', content)
-      // addGroup(content)
     } else {
       pageStore.setDPage(content.page)
-      // store.commit('setDPage', content.page)
       // 移除背景图，作为独立事件
       backgroundImage = content.page?.backgroundImage
       backgroundImage && delete content.page.backgroundImage
       pageStore.setDPage(content.page)
-      // store.commit('setDPage', content.page)
       if (id) {
         widgetStore.setDWidgets(widgets)
-        // store.commit('setDWidgets', widgets)
       } else {
         widgetStore.setTemplate(widgets)
-        // store.dispatch('setTemplate', widgets)
       }
     }
 
